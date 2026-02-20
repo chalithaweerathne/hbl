@@ -1,0 +1,72 @@
+/* ── Reset & Base ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Root Variables ── */
+:root {
+  --hbl-green: #00a651;
+  --hbl-green-dark: #007a3d;
+  --hbl-green-light: #00c763;
+  --hbl-green-glow: rgba(0, 166, 81, 0.25);
+
+  --bg-base: #0a0f1e;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2236;
+  --bg-input: #0c1220;
+
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-focus: rgba(0, 166, 81, 0.6);
+
+  --text-primary: #f0f4ff;
+  --text-secondary: #8b95a8;
+  --text-muted: #4b5563;
+
+  --success-bg: rgba(0, 166, 81, 0.12);
+  --success-border: rgba(0, 166, 81, 0.45);
+  --success-text: #4ade80;
+
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --error-border: rgba(239, 68, 68, 0.4);
+  --error-text: #f87171;
+
+  --info-bg: rgba(59, 130, 246, 0.08);
+  --info-border: rgba(59, 130, 246, 0.3);
+  --info-text: #93c5fd;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  --shadow-card: 0 4px 32px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 40px rgba(0, 166, 81, 0.08);
+
+  --transition: 0.2s ease;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Body ── */
+body {
+  font-family: var(--font);
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0, 166, 81, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(0, 100, 200, 0.04) 0%, transparent 60%);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Page Layout ── */
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 16px 80px;
+  min-height: 100vh;
+}
