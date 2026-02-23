@@ -67,6 +67,23 @@ const HblUnifiedCheckout: React.FC = () => {
 
         script.onload = async () => {
             setStatus('SDK Loaded. Initializing Accept Instance...');
+
+            // NEW FIX: Listen for the SDK's internal message before starting the flow
+            const messageListener = (event: MessageEvent) => {
+                // Look for the specific 'closeApp' or 'Cancelled' source from Cybersource
+                if (event.data && (event.data.source === 'mce:App::closeApp' || event.data.message === 'Cancelled add card only')) {
+                    console.log('Detected Back Button/Close via Window Message:', event.data);
+
+                    // Perform your navigation here
+                    // navigate('/your-other-page');
+
+                    // Clean up the listener
+                    window.removeEventListener('message', messageListener);
+                }
+            };
+            window.addEventListener('message', messageListener);
+
+
             try {
                 // 1. Initialize Accept object
                 const acceptInstance = await window.Accept(jwt);
