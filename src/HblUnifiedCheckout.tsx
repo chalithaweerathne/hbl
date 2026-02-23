@@ -97,11 +97,11 @@ const HblUnifiedCheckout: React.FC = () => {
                     setStatus('✅ Success! Transient Token received. Check browser console for details.');
                     console.log('Transient Token JWT:', transientToken);
                 } catch (err: unknown) {
+                    console.error('SDK Detail Error:', err);
                     const message = err instanceof Error ? err.message : 'Initialization failed';
                     setIsError(true);
                     setIsSuccess(false);
                     setStatus(`Error: ${message}`);
-                    console.error('SDK Detail Error:', err);
                 }
             };
         } catch (error: unknown) {
