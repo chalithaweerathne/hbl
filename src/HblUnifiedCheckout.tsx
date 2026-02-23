@@ -119,7 +119,7 @@ const HblUnifiedCheckout: React.FC = () => {
                 if (err?.reason === 'COMPLETE_TRANSACTION_CANCELLED') {
                     console.log('User clicked the back button');
                     // Navigate to your desired page here
-                    // Example: navigate('/some-other-page');
+                    navigate('/some-other-page');
                     return;
                 }
 
