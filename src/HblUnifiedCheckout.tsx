@@ -58,40 +58,48 @@ const HblUnifiedCheckout: React.FC = () => {
         setIsSuccess(false);
         setStatus('Loading Secure SDK...');
 
-        // Dynamically load the Cybersource script
         const script = document.createElement('script');
         script.src = metadata.url;
         script.integrity = metadata.integrity;
         script.crossOrigin = 'anonymous';
         script.async = true;
 
-
         script.onload = async () => {
             setStatus('SDK Loaded. Initializing Accept Instance...');
 
-            // 1. CREATE THE LISTENER to catch the SDK's internal "close" message
-            const handleSdkClose = (event: MessageEvent) => {
-                console.log("event triggred", event);
+            // --- TRACKING FIX START ---
+            const messageListener = (event: MessageEvent) => {
+                // 1. Check for the Cybersource 'telegram' JSON message you see in your log
+                if (typeof event.data === 'string' && event.data.includes('/*cybs-telgram*/')) {
+                    try {
+                        const rawJson = event.data.replace('/*cybs-telgram*/', '');
+                        const parsed = JSON.parse(rawJson);
 
-                // This checks for the exact log you see in your console
+                        // Check if the event type is "CLOSE" (triggered by Back button)
+                        if (parsed.event === 'CLOSE') {
+                            console.log('Back button detected via cybs-telgram CLOSE event');
+                            // navigate('/your-page'); // Add your navigation logic here
+                            window.removeEventListener('message', messageListener);
+                        }
+                    } catch (e) {
+                        // Not a JSON we care about
+                    }
+                }
+
+                // 2. Fallback check for the 'mce:App::closeApp' source
                 if (event.data && event.data.source === 'mce:App::closeApp') {
-                    console.log('Back button detected via window message tracking!');
-
-                    // PERFORM NAVIGATION HERE
-                    // window.location.href = '/your-dashboard';
-
-                    // Cleanup
-                    window.removeEventListener('message', handleSdkClose);
+                    console.log('Back button detected via closeApp source');
+                    // navigate('/your-page'); // Add your navigation logic here
+                    window.removeEventListener('message', messageListener);
                 }
             };
 
-            // Add the listener before starting the checkout flow
-            window.addEventListener('message', handleSdkClose);
+            window.addEventListener('message', messageListener);
+            // --- TRACKING FIX END ---
 
             try {
                 const acceptInstance = await window.Accept(jwt);
                 const up = await acceptInstance.unifiedPayments(false);
-
                 setStatus('Ready. Loading Manual Entry Form...');
 
                 const containerOptions = {
@@ -102,35 +110,37 @@ const HblUnifiedCheckout: React.FC = () => {
 
                 const trigger = up.createTrigger('PANENTRY', containerOptions);
 
+                // This promise hangs when Back is clicked, but the listener above will fire
                 const transientToken = await trigger.show();
 
-                // If it reaches here, it was a success
-                window.removeEventListener('message', handleSdkClose); // Cleanup on success
+                // Success cleanup
+                window.removeEventListener('message', messageListener);
                 setIsSuccess(true);
-                setStatus('✅ Success!');
+                setIsError(false);
+                setStatus('✅ Success! Transient Token received.');
                 console.log('Transient Token JWT:', transientToken);
-
             } catch (err: any) {
-                window.removeEventListener('message', handleSdkClose); // Cleanup on error
+                // Catch cleanup
+                window.removeEventListener('message', messageListener);
 
-                // Handle documented cancellation if the SDK actually rejects the promise
+                // Final check if SDK actually rejects with documented reason code
                 if (err?.reason === 'COMPLETE_TRANSACTION_CANCELLED') {
-                    console.log('User cancelled flow (SDK reason code)');
+                    console.log('User cancelled flow via standard SDK reason code');
                     return;
                 }
 
                 console.error('SDK Detail Error:', err);
+                const message = err instanceof Error ? err.message : 'Initialization failed';
                 setIsError(true);
-                setStatus(`Error: ${err?.message || 'Initialization failed'}`);
+                setIsSuccess(false);
+                setStatus(`Error: ${message}`);
             }
         };
 
         script.onerror = () => {
             setIsError(true);
             setIsSuccess(false);
-            setStatus(
-                'Error: SDK failed to load. Ensure you are on a Secure Context (HTTPS) and the JWT is valid.'
-            );
+            setStatus('Error: SDK failed to load.');
         };
 
         document.head.appendChild(script);
