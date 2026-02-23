@@ -65,59 +65,49 @@ const HblUnifiedCheckout: React.FC = () => {
         script.crossOrigin = 'anonymous';
         script.async = true;
 
-        script.onload = async () => {
-            setStatus('SDK Loaded. Initializing Accept Instance...');
+        try {
+            script.onload = async () => {
+                setStatus('SDK Loaded. Initializing Accept Instance...');
 
-            // NEW FIX: Listen for the SDK's internal message before starting the flow
-            const messageListener = (event: MessageEvent) => {
-                // Look for the specific 'closeApp' or 'Cancelled' source from Cybersource
-                if (event.data && (event.data.source === 'mce:App::closeApp' || event.data.message === 'Cancelled add card only')) {
-                    console.log('Detected Back Button/Close via Window Message:', event.data);
 
-                    // Perform your navigation here
-                    // navigate('/your-other-page');
+                try {
+                    // 1. Initialize Accept object
+                    const acceptInstance = await window.Accept(jwt);
 
-                    // Clean up the listener
-                    window.removeEventListener('message', messageListener);
+                    // 2. Initialize Unified Payments (sidebar: false = embedded mode)
+                    const up = await acceptInstance.unifiedPayments(false);
+
+                    setStatus('Ready. Loading Manual Entry Form...');
+
+                    // 3. Define the container for the manual entry form
+                    const containerOptions = {
+                        containers: {
+                            paymentScreen: '#payment-screen-container',
+                        },
+                    };
+
+                    // 4. Use createTrigger to load PANENTRY immediately
+                    const trigger = up.createTrigger('PANENTRY', containerOptions);
+
+                    // 5. Show the UI and await the Transient Token
+                    const transientToken = await trigger.show();
+
+                    setIsSuccess(true);
+                    setIsError(false);
+                    setStatus('✅ Success! Transient Token received. Check browser console for details.');
+                    console.log('Transient Token JWT:', transientToken);
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Initialization failed';
+                    setIsError(true);
+                    setIsSuccess(false);
+                    setStatus(`Error: ${message}`);
+                    console.error('SDK Detail Error:', err);
                 }
             };
-            window.addEventListener('message', messageListener);
+        } catch (error: unknown) {
+            console.log("Script Load error", error);
+        }
 
-
-            try {
-                // 1. Initialize Accept object
-                const acceptInstance = await window.Accept(jwt);
-
-                // 2. Initialize Unified Payments (sidebar: false = embedded mode)
-                const up = await acceptInstance.unifiedPayments(false);
-
-                setStatus('Ready. Loading Manual Entry Form...');
-
-                // 3. Define the container for the manual entry form
-                const containerOptions = {
-                    containers: {
-                        paymentScreen: '#payment-screen-container',
-                    },
-                };
-
-                // 4. Use createTrigger to load PANENTRY immediately
-                const trigger = up.createTrigger('PANENTRY', containerOptions);
-
-                // 5. Show the UI and await the Transient Token
-                const transientToken = await trigger.show();
-
-                setIsSuccess(true);
-                setIsError(false);
-                setStatus('✅ Success! Transient Token received. Check browser console for details.');
-                console.log('Transient Token JWT:', transientToken);
-            } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : 'Initialization failed';
-                setIsError(true);
-                setIsSuccess(false);
-                setStatus(`Error: ${message}`);
-                console.error('SDK Detail Error:', err);
-            }
-        };
 
         script.onerror = () => {
             setIsError(true);
