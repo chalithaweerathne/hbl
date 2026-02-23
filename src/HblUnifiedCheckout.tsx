@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface SdkMetadata {
@@ -26,11 +26,6 @@ const HblUnifiedCheckout: React.FC = () => {
     const sdkRef = useRef<HTMLScriptElement | null>(null);
     const acceptRef = useRef<any>(null);
 
-    const clearPaymentContainer = () => {
-        const container = document.getElementById('payment-screen-container');
-        if (container) container.innerHTML = '';
-    };
-
     const disposeAccept = () => {
         try {
             if (acceptRef.current && typeof acceptRef.current.dispose === 'function') {
@@ -42,6 +37,16 @@ const HblUnifiedCheckout: React.FC = () => {
             acceptRef.current = null;
         }
     };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            disposeAccept();
+            if (sdkRef.current) {
+                sdkRef.current.remove();
+            }
+        };
+    }, []);
 
     // Helper to decode the JWT and extract the SDK URL and Integrity hash
     const getSdkMetadata = (token: string): SdkMetadata | null => {
@@ -76,9 +81,8 @@ const HblUnifiedCheckout: React.FC = () => {
             return;
         }
 
-        // Ensure clean state if user tries again without pressing Reset
+        // Ensure clean state
         disposeAccept();
-        clearPaymentContainer();
 
         setIsError(false);
         setIsSuccess(false);
@@ -86,11 +90,7 @@ const HblUnifiedCheckout: React.FC = () => {
 
         // Remove any previously injected SDK script to avoid duplicates
         if (sdkRef.current) {
-            try {
-                document.head.removeChild(sdkRef.current);
-            } catch {
-                // ignore
-            }
+            sdkRef.current.remove();
             sdkRef.current = null;
         }
 
@@ -143,8 +143,6 @@ const HblUnifiedCheckout: React.FC = () => {
                         setStatus('Payment cancelled. Redirecting to summary...');
 
                         disposeAccept();
-                        clearPaymentContainer();
-
                         navigate('/summary-page');
                         return;
                     }
@@ -180,11 +178,7 @@ const HblUnifiedCheckout: React.FC = () => {
 
         // Remove the old script tag if present
         if (sdkRef.current) {
-            try {
-                document.head.removeChild(sdkRef.current);
-            } catch {
-                // ignore
-            }
+            sdkRef.current.remove();
             sdkRef.current = null;
         }
 
@@ -193,9 +187,6 @@ const HblUnifiedCheckout: React.FC = () => {
         setIsSuccess(false);
         setIsError(false);
         setStatus('Waiting for JWT input...');
-
-        // Clear the payment container
-        clearPaymentContainer();
     };
 
     const getStatusClass = () => {
@@ -265,11 +256,10 @@ const HblUnifiedCheckout: React.FC = () => {
                     <span>Secure Payment Form</span>
                 </div>
                 <div
-                    id="payment-screen-container"
-                    className="payment-screen-container"
-                    aria-label="Payment entry form"
+                    className="payment-screen-container-viewport"
+                    style={{ minHeight: '300px', position: 'relative' }}
                 >
-                    {!isLoaded && (
+                    {!isLoaded ? (
                         <div className="payment-placeholder">
                             <div className="placeholder-icon">💳</div>
                             <p className="placeholder-title">Payment Form Area</p>
@@ -277,6 +267,12 @@ const HblUnifiedCheckout: React.FC = () => {
                                 The secure card entry form will appear here after you initialize checkout.
                             </p>
                         </div>
+                    ) : (
+                        <div
+                            id="payment-screen-container"
+                            className="payment-screen-container"
+                            aria-label="Payment entry form"
+                        />
                     )}
                 </div>
             </div>
