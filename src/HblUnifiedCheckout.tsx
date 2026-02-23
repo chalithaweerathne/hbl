@@ -1,5 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef } from 'react';
 
 interface SdkMetadata {
     url: string;
@@ -15,38 +14,12 @@ declare global {
 }
 
 const HblUnifiedCheckout: React.FC = () => {
-    const navigate = useNavigate();
-
     const [jwt, setJwt] = useState<string>('');
     const [status, setStatus] = useState<string>('Waiting for JWT input...');
     const [isLoaded, setIsLoaded] = useState<boolean>(false);
     const [isSuccess, setIsSuccess] = useState<boolean>(false);
     const [isError, setIsError] = useState<boolean>(false);
-
     const sdkRef = useRef<HTMLScriptElement | null>(null);
-    const acceptRef = useRef<any>(null);
-
-    const disposeAccept = () => {
-        try {
-            if (acceptRef.current && typeof acceptRef.current.dispose === 'function') {
-                acceptRef.current.dispose();
-            }
-        } catch (e) {
-            console.warn('Accept dispose failed:', e);
-        } finally {
-            acceptRef.current = null;
-        }
-    };
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            disposeAccept();
-            if (sdkRef.current) {
-                sdkRef.current.remove();
-            }
-        };
-    }, []);
 
     // Helper to decode the JWT and extract the SDK URL and Integrity hash
     const getSdkMetadata = (token: string): SdkMetadata | null => {
@@ -85,6 +58,7 @@ const HblUnifiedCheckout: React.FC = () => {
         setIsSuccess(false);
         setStatus('Loading Secure SDK...');
 
+        // Dynamically load the Cybersource script
         const script = document.createElement('script');
         script.src = metadata.url;
         script.integrity = metadata.integrity;
@@ -94,47 +68,46 @@ const HblUnifiedCheckout: React.FC = () => {
         script.onload = async () => {
             setStatus('SDK Loaded. Initializing Accept Instance...');
             try {
+                // 1. Initialize Accept object
                 const acceptInstance = await window.Accept(jwt);
+
+                // 2. Initialize Unified Payments (sidebar: false = embedded mode)
                 const up = await acceptInstance.unifiedPayments(false);
 
                 setStatus('Ready. Loading Manual Entry Form...');
 
+                // 3. Define the container for the manual entry form
                 const containerOptions = {
                     containers: {
                         paymentScreen: '#payment-screen-container',
                     },
                 };
 
+                // 4. Use createTrigger to load PANENTRY immediately
                 const trigger = up.createTrigger('PANENTRY', containerOptions);
 
-                // This promise will reject when the user clicks the "Back" button
+                // 5. Show the UI and await the Transient Token
                 const transientToken = await trigger.show();
 
                 setIsSuccess(true);
                 setIsError(false);
-                setStatus('✅ Success! Transient Token received.');
+                setStatus('✅ Success! Transient Token received. Check browser console for details.');
                 console.log('Transient Token JWT:', transientToken);
-            } catch (err: any) {
-                // FIX: Check for the specific cancellation reason code defined in the SDK
-                if (err?.reason === 'COMPLETE_TRANSACTION_CANCELLED') {
-                    console.log('User clicked the back button');
-                    // Navigate to your desired page here
-                    navigate('/some-other-page');
-                    return;
-                }
-
-                console.error('SDK Detail Error:', err);
+            } catch (err: unknown) {
                 const message = err instanceof Error ? err.message : 'Initialization failed';
                 setIsError(true);
                 setIsSuccess(false);
                 setStatus(`Error: ${message}`);
+                console.error('SDK Detail Error:', err);
             }
         };
 
         script.onerror = () => {
             setIsError(true);
             setIsSuccess(false);
-            setStatus('Error: SDK failed to load.');
+            setStatus(
+                'Error: SDK failed to load. Ensure you are on a Secure Context (HTTPS) and the JWT is valid.'
+            );
         };
 
         document.head.appendChild(script);
@@ -143,20 +116,20 @@ const HblUnifiedCheckout: React.FC = () => {
     };
 
     const handleReset = () => {
-        // Dispose SDK instances
-        disposeAccept();
-
         // Remove the old script tag if present
         if (sdkRef.current) {
-            sdkRef.current.remove();
+            document.head.removeChild(sdkRef.current);
             sdkRef.current = null;
         }
-
         setJwt('');
         setIsLoaded(false);
         setIsSuccess(false);
         setIsError(false);
         setStatus('Waiting for JWT input...');
+
+        // Clear the payment container
+        const container = document.getElementById('payment-screen-container');
+        if (container) container.innerHTML = '';
     };
 
     const getStatusClass = () => {
@@ -167,6 +140,7 @@ const HblUnifiedCheckout: React.FC = () => {
 
     return (
         <div className="checkout-wrapper">
+            {/* Header */}
             <div className="checkout-header">
                 <div className="hbl-badge">HBL</div>
                 <div>
@@ -175,6 +149,7 @@ const HblUnifiedCheckout: React.FC = () => {
                 </div>
             </div>
 
+            {/* JWT Input Card */}
             <div className="card">
                 <label className="input-label" htmlFor="jwt-input">
                     <span className="label-icon">🔑</span> Capture Context JWT
@@ -194,6 +169,7 @@ const HblUnifiedCheckout: React.FC = () => {
                 </p>
             </div>
 
+            {/* Action Buttons */}
             <div className="action-row">
                 <button
                     id="initialize-btn"
@@ -215,21 +191,24 @@ const HblUnifiedCheckout: React.FC = () => {
                 </button>
             </div>
 
+            {/* Status Box */}
             <div className={getStatusClass()} id="status-box" aria-live="polite">
                 <span className="status-label">Status</span>
                 <span className="status-text">{status}</span>
             </div>
 
+            {/* Payment Screen Container */}
             <div className="payment-container-wrapper">
                 <div className="payment-container-header">
                     <span className="lock-icon">🔒</span>
                     <span>Secure Payment Form</span>
                 </div>
                 <div
-                    className="payment-screen-container-viewport"
-                    style={{ minHeight: '300px', position: 'relative' }}
+                    id="payment-screen-container"
+                    className="payment-screen-container"
+                    aria-label="Payment entry form"
                 >
-                    {!isLoaded ? (
+                    {!isLoaded && (
                         <div className="payment-placeholder">
                             <div className="placeholder-icon">💳</div>
                             <p className="placeholder-title">Payment Form Area</p>
@@ -237,14 +216,17 @@ const HblUnifiedCheckout: React.FC = () => {
                                 The secure card entry form will appear here after you initialize checkout.
                             </p>
                         </div>
-                    ) : (
-                        <div
-                            id="payment-screen-container"
-                            className="payment-screen-container"
-                            aria-label="Payment entry form"
-                        />
                     )}
                 </div>
+            </div>
+
+            {/* Footer */}
+            <div className="checkout-footer">
+                <span>🔐 256-bit SSL Encrypted</span>
+                <span>·</span>
+                <span>PCI DSS Compliant</span>
+                <span>·</span>
+                <span>Powered by CyberSource</span>
             </div>
         </div>
     );
