@@ -69,44 +69,59 @@ const HblUnifiedCheckout: React.FC = () => {
         script.onload = async () => {
             setStatus('SDK Loaded. Initializing Accept Instance...');
 
+            // 1. CREATE THE LISTENER to catch the SDK's internal "close" message
+            const handleSdkClose = (event: MessageEvent) => {
+                // This checks for the exact log you see in your console
+                if (event.data && event.data.source === 'mce:App::closeApp') {
+                    console.log('Back button detected via window message tracking!');
+
+                    // PERFORM NAVIGATION HERE
+                    // window.location.href = '/your-dashboard';
+
+                    // Cleanup
+                    window.removeEventListener('message', handleSdkClose);
+                }
+            };
+
+            // Add the listener before starting the checkout flow
+            window.addEventListener('message', handleSdkClose);
 
             try {
-                // 1. Initialize Accept object
                 const acceptInstance = await window.Accept(jwt);
-
-                // 2. Initialize Unified Payments (sidebar: false = embedded mode)
                 const up = await acceptInstance.unifiedPayments(false);
 
                 setStatus('Ready. Loading Manual Entry Form...');
 
-                // 3. Define the container for the manual entry form
                 const containerOptions = {
                     containers: {
                         paymentScreen: '#payment-screen-container',
                     },
                 };
 
-                // 4. Use createTrigger to load PANENTRY immediately
                 const trigger = up.createTrigger('PANENTRY', containerOptions);
 
-                // 5. Show the UI and await the Transient Token
-                console.log("Waiting for user...");
                 const transientToken = await trigger.show();
-                console.log("This will NEVER print if you click Back");
 
+                // If it reaches here, it was a success
+                window.removeEventListener('message', handleSdkClose); // Cleanup on success
                 setIsSuccess(true);
-                setIsError(false);
-                setStatus('✅ Success! Transient Token received. Check browser console for details.');
+                setStatus('✅ Success!');
                 console.log('Transient Token JWT:', transientToken);
-            } catch (err: unknown) {
+
+            } catch (err: any) {
+                window.removeEventListener('message', handleSdkClose); // Cleanup on error
+
+                // Handle documented cancellation if the SDK actually rejects the promise
+                if (err?.reason === 'COMPLETE_TRANSACTION_CANCELLED') {
+                    console.log('User cancelled flow (SDK reason code)');
+                    return;
+                }
+
                 console.error('SDK Detail Error:', err);
-                const message = err instanceof Error ? err.message : 'Initialization failed';
                 setIsError(true);
-                setIsSuccess(false);
-                setStatus(`Error: ${message}`);
+                setStatus(`Error: ${err?.message || 'Initialization failed'}`);
             }
         };
-
 
         script.onerror = () => {
             setIsError(true);
