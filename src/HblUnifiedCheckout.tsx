@@ -65,48 +65,47 @@ const HblUnifiedCheckout: React.FC = () => {
         script.crossOrigin = 'anonymous';
         script.async = true;
 
-        try {
-            script.onload = async () => {
-                setStatus('SDK Loaded. Initializing Accept Instance...');
+
+        script.onload = async () => {
+            setStatus('SDK Loaded. Initializing Accept Instance...');
 
 
-                try {
-                    // 1. Initialize Accept object
-                    const acceptInstance = await window.Accept(jwt);
+            try {
+                // 1. Initialize Accept object
+                const acceptInstance = await window.Accept(jwt);
 
-                    // 2. Initialize Unified Payments (sidebar: false = embedded mode)
-                    const up = await acceptInstance.unifiedPayments(false);
+                // 2. Initialize Unified Payments (sidebar: false = embedded mode)
+                const up = await acceptInstance.unifiedPayments(false);
 
-                    setStatus('Ready. Loading Manual Entry Form...');
+                setStatus('Ready. Loading Manual Entry Form...');
 
-                    // 3. Define the container for the manual entry form
-                    const containerOptions = {
-                        containers: {
-                            paymentScreen: '#payment-screen-container',
-                        },
-                    };
+                // 3. Define the container for the manual entry form
+                const containerOptions = {
+                    containers: {
+                        paymentScreen: '#payment-screen-container',
+                    },
+                };
 
-                    // 4. Use createTrigger to load PANENTRY immediately
-                    const trigger = up.createTrigger('PANENTRY', containerOptions);
+                // 4. Use createTrigger to load PANENTRY immediately
+                const trigger = up.createTrigger('PANENTRY', containerOptions);
 
-                    // 5. Show the UI and await the Transient Token
-                    const transientToken = await trigger.show();
+                // 5. Show the UI and await the Transient Token
+                console.log("Waiting for user...");
+                const transientToken = await trigger.show();
+                console.log("This will NEVER print if you click Back");
 
-                    setIsSuccess(true);
-                    setIsError(false);
-                    setStatus('✅ Success! Transient Token received. Check browser console for details.');
-                    console.log('Transient Token JWT:', transientToken);
-                } catch (err: unknown) {
-                    console.error('SDK Detail Error:', err);
-                    const message = err instanceof Error ? err.message : 'Initialization failed';
-                    setIsError(true);
-                    setIsSuccess(false);
-                    setStatus(`Error: ${message}`);
-                }
-            };
-        } catch (error: unknown) {
-            console.log("Script Load error", error);
-        }
+                setIsSuccess(true);
+                setIsError(false);
+                setStatus('✅ Success! Transient Token received. Check browser console for details.');
+                console.log('Transient Token JWT:', transientToken);
+            } catch (err: unknown) {
+                console.error('SDK Detail Error:', err);
+                const message = err instanceof Error ? err.message : 'Initialization failed';
+                setIsError(true);
+                setIsSuccess(false);
+                setStatus(`Error: ${message}`);
+            }
+        };
 
 
         script.onerror = () => {
