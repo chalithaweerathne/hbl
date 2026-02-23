@@ -1,8 +1,23 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import HblUnifiedCheckout from './HblUnifiedCheckout';
 
+const SummaryPage = () => (
+  <div style={{ padding: '2rem', textAlign: 'center' }}>
+    <h1>Payment Summary</h1>
+    <p>Your payment process has been completed or cancelled.</p>
+    <button onClick={() => window.location.href = '/'}>Go Back to Checkout</button>
+  </div>
+);
+
 function App() {
-  return <HblUnifiedCheckout />;
+  return (
+    <Routes>
+      <Route path="/" element={<HblUnifiedCheckout />} />
+      <Route path="/summary-page" element={<SummaryPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default App;
