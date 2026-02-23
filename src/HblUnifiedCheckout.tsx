@@ -81,20 +81,10 @@ const HblUnifiedCheckout: React.FC = () => {
             return;
         }
 
-        // Ensure clean state
-        disposeAccept();
-
         setIsError(false);
         setIsSuccess(false);
         setStatus('Loading Secure SDK...');
 
-        // Remove any previously injected SDK script to avoid duplicates
-        if (sdkRef.current) {
-            sdkRef.current.remove();
-            sdkRef.current = null;
-        }
-
-        // Dynamically load the Cybersource script
         const script = document.createElement('script');
         script.src = metadata.url;
         script.integrity = metadata.integrity;
@@ -104,67 +94,47 @@ const HblUnifiedCheckout: React.FC = () => {
         script.onload = async () => {
             setStatus('SDK Loaded. Initializing Accept Instance...');
             try {
-                // 1. Initialize Accept object
                 const acceptInstance = await window.Accept(jwt);
-                acceptRef.current = acceptInstance;
-
-                // 2. Initialize Unified Payments (sidebar: false = embedded mode)
                 const up = await acceptInstance.unifiedPayments(false);
 
                 setStatus('Ready. Loading Manual Entry Form...');
 
-                // 3. Define the container for the manual entry form
                 const containerOptions = {
                     containers: {
                         paymentScreen: '#payment-screen-container',
                     },
                 };
 
-                // 4. Use createTrigger to load PANENTRY immediately
                 const trigger = up.createTrigger('PANENTRY', containerOptions);
 
-                // 5. Show the UI and await the Transient Token
-                setStatus('Waiting for user to complete payment...');
-                try {
-                    const transientToken = await trigger.show();
+                // This promise will reject when the user clicks the "Back" button
+                const transientToken = await trigger.show();
 
-                    setIsSuccess(true);
-                    setIsError(false);
-                    setStatus('✅ Success! Transient Token received. Check browser console for details.');
-                    console.log('Transient Token JWT:', transientToken);
-                } catch (showErr: unknown) {
-                    const msg = showErr instanceof Error ? showErr.message : String(showErr || '');
-                    console.warn('trigger.show() rejected:', showErr);
-
-                    // Treat "back" / cancel as a cancellation, then navigate to summary page
-                    if (msg.includes('COMPLETE_TRANSACTION_CANCELED') || msg.toLowerCase().includes('cancel')) {
-                        setIsError(false);
-                        setIsSuccess(false);
-                        setStatus('Payment cancelled. Redirecting to summary...');
-
-                        disposeAccept();
-                        navigate('/summary-page');
-                        return;
-                    }
-
-                    // Other show() errors
-                    setIsError(true);
-                    setIsSuccess(false);
-                    setStatus(`Error: ${msg || 'Payment flow was interrupted.'}`);
+                setIsSuccess(true);
+                setIsError(false);
+                setStatus('✅ Success! Transient Token received.');
+                console.log('Transient Token JWT:', transientToken);
+            } catch (err: any) {
+                // FIX: Check for the specific cancellation reason code defined in the SDK
+                if (err?.reason === 'COMPLETE_TRANSACTION_CANCELLED') {
+                    console.log('User clicked the back button');
+                    // Navigate to your desired page here
+                    // Example: navigate('/some-other-page');
+                    return;
                 }
-            } catch (err: unknown) {
+
+                console.error('SDK Detail Error:', err);
                 const message = err instanceof Error ? err.message : 'Initialization failed';
                 setIsError(true);
                 setIsSuccess(false);
                 setStatus(`Error: ${message}`);
-                console.error('SDK Detail Error:', err);
             }
         };
 
         script.onerror = () => {
             setIsError(true);
             setIsSuccess(false);
-            setStatus('Error: SDK failed to load. Ensure you are on HTTPS and the JWT is valid.');
+            setStatus('Error: SDK failed to load.');
         };
 
         document.head.appendChild(script);
