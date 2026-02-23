@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface SdkMetadata {
     url: string;
@@ -14,12 +15,33 @@ declare global {
 }
 
 const HblUnifiedCheckout: React.FC = () => {
+    const navigate = useNavigate();
+
     const [jwt, setJwt] = useState<string>('');
     const [status, setStatus] = useState<string>('Waiting for JWT input...');
     const [isLoaded, setIsLoaded] = useState<boolean>(false);
     const [isSuccess, setIsSuccess] = useState<boolean>(false);
     const [isError, setIsError] = useState<boolean>(false);
+
     const sdkRef = useRef<HTMLScriptElement | null>(null);
+    const acceptRef = useRef<any>(null);
+
+    const clearPaymentContainer = () => {
+        const container = document.getElementById('payment-screen-container');
+        if (container) container.innerHTML = '';
+    };
+
+    const disposeAccept = () => {
+        try {
+            if (acceptRef.current && typeof acceptRef.current.dispose === 'function') {
+                acceptRef.current.dispose();
+            }
+        } catch (e) {
+            console.warn('Accept dispose failed:', e);
+        } finally {
+            acceptRef.current = null;
+        }
+    };
 
     // Helper to decode the JWT and extract the SDK URL and Integrity hash
     const getSdkMetadata = (token: string): SdkMetadata | null => {
@@ -54,9 +76,23 @@ const HblUnifiedCheckout: React.FC = () => {
             return;
         }
 
+        // Ensure clean state if user tries again without pressing Reset
+        disposeAccept();
+        clearPaymentContainer();
+
         setIsError(false);
         setIsSuccess(false);
         setStatus('Loading Secure SDK...');
+
+        // Remove any previously injected SDK script to avoid duplicates
+        if (sdkRef.current) {
+            try {
+                document.head.removeChild(sdkRef.current);
+            } catch {
+                // ignore
+            }
+            sdkRef.current = null;
+        }
 
         // Dynamically load the Cybersource script
         const script = document.createElement('script');
@@ -70,6 +106,7 @@ const HblUnifiedCheckout: React.FC = () => {
             try {
                 // 1. Initialize Accept object
                 const acceptInstance = await window.Accept(jwt);
+                acceptRef.current = acceptInstance;
 
                 // 2. Initialize Unified Payments (sidebar: false = embedded mode)
                 const up = await acceptInstance.unifiedPayments(false);
@@ -87,12 +124,36 @@ const HblUnifiedCheckout: React.FC = () => {
                 const trigger = up.createTrigger('PANENTRY', containerOptions);
 
                 // 5. Show the UI and await the Transient Token
-                const transientToken = await trigger.show();
+                setStatus('Waiting for user to complete payment...');
+                try {
+                    const transientToken = await trigger.show();
 
-                setIsSuccess(true);
-                setIsError(false);
-                setStatus('✅ Success! Transient Token received. Check browser console for details.');
-                console.log('Transient Token JWT:', transientToken);
+                    setIsSuccess(true);
+                    setIsError(false);
+                    setStatus('✅ Success! Transient Token received. Check browser console for details.');
+                    console.log('Transient Token JWT:', transientToken);
+                } catch (showErr: unknown) {
+                    const msg = showErr instanceof Error ? showErr.message : String(showErr || '');
+                    console.warn('trigger.show() rejected:', showErr);
+
+                    // Treat "back" / cancel as a cancellation, then navigate to summary page
+                    if (msg.includes('COMPLETE_TRANSACTION_CANCELED') || msg.toLowerCase().includes('cancel')) {
+                        setIsError(false);
+                        setIsSuccess(false);
+                        setStatus('Payment cancelled. Redirecting to summary...');
+
+                        disposeAccept();
+                        clearPaymentContainer();
+
+                        navigate('/summary-page');
+                        return;
+                    }
+
+                    // Other show() errors
+                    setIsError(true);
+                    setIsSuccess(false);
+                    setStatus(`Error: ${msg || 'Payment flow was interrupted.'}`);
+                }
             } catch (err: unknown) {
                 const message = err instanceof Error ? err.message : 'Initialization failed';
                 setIsError(true);
@@ -105,9 +166,7 @@ const HblUnifiedCheckout: React.FC = () => {
         script.onerror = () => {
             setIsError(true);
             setIsSuccess(false);
-            setStatus(
-                'Error: SDK failed to load. Ensure you are on a Secure Context (HTTPS) and the JWT is valid.'
-            );
+            setStatus('Error: SDK failed to load. Ensure you are on HTTPS and the JWT is valid.');
         };
 
         document.head.appendChild(script);
@@ -116,11 +175,19 @@ const HblUnifiedCheckout: React.FC = () => {
     };
 
     const handleReset = () => {
+        // Dispose SDK instances
+        disposeAccept();
+
         // Remove the old script tag if present
         if (sdkRef.current) {
-            document.head.removeChild(sdkRef.current);
+            try {
+                document.head.removeChild(sdkRef.current);
+            } catch {
+                // ignore
+            }
             sdkRef.current = null;
         }
+
         setJwt('');
         setIsLoaded(false);
         setIsSuccess(false);
@@ -128,8 +195,7 @@ const HblUnifiedCheckout: React.FC = () => {
         setStatus('Waiting for JWT input...');
 
         // Clear the payment container
-        const container = document.getElementById('payment-screen-container');
-        if (container) container.innerHTML = '';
+        clearPaymentContainer();
     };
 
     const getStatusClass = () => {
@@ -140,7 +206,6 @@ const HblUnifiedCheckout: React.FC = () => {
 
     return (
         <div className="checkout-wrapper">
-            {/* Header */}
             <div className="checkout-header">
                 <div className="hbl-badge">HBL</div>
                 <div>
@@ -149,7 +214,6 @@ const HblUnifiedCheckout: React.FC = () => {
                 </div>
             </div>
 
-            {/* JWT Input Card */}
             <div className="card">
                 <label className="input-label" htmlFor="jwt-input">
                     <span className="label-icon">🔑</span> Capture Context JWT
@@ -169,7 +233,6 @@ const HblUnifiedCheckout: React.FC = () => {
                 </p>
             </div>
 
-            {/* Action Buttons */}
             <div className="action-row">
                 <button
                     id="initialize-btn"
@@ -191,13 +254,11 @@ const HblUnifiedCheckout: React.FC = () => {
                 </button>
             </div>
 
-            {/* Status Box */}
             <div className={getStatusClass()} id="status-box" aria-live="polite">
                 <span className="status-label">Status</span>
                 <span className="status-text">{status}</span>
             </div>
 
-            {/* Payment Screen Container */}
             <div className="payment-container-wrapper">
                 <div className="payment-container-header">
                     <span className="lock-icon">🔒</span>
