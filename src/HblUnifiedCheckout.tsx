@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface SdkMetadata {
     url: string;
@@ -14,6 +15,7 @@ declare global {
 }
 
 const HblUnifiedCheckout: React.FC = () => {
+    const navigate = useNavigate();
     const [jwt, setJwt] = useState<string>('');
     const [status, setStatus] = useState<string>('Waiting for JWT input...');
     const [isLoaded, setIsLoaded] = useState<boolean>(false);
@@ -78,8 +80,8 @@ const HblUnifiedCheckout: React.FC = () => {
                         // Check if the event type is "CLOSE" (triggered by Back button)
                         if (parsed.event === 'CLOSE') {
                             console.log('Back button detected via cybs-telgram CLOSE event');
-                            // navigate('/your-page'); // Add your navigation logic here
                             window.removeEventListener('message', messageListener);
+                            navigate('/summary-page');
                         }
                     } catch (e) {
                         // Not a JSON we care about
@@ -89,8 +91,8 @@ const HblUnifiedCheckout: React.FC = () => {
                 // 2. Fallback check for the 'mce:App::closeApp' source
                 if (event.data && event.data.source === 'mce:App::closeApp') {
                     console.log('Back button detected via closeApp source');
-                    // navigate('/your-page'); // Add your navigation logic here
                     window.removeEventListener('message', messageListener);
+                    navigate('/summary-page');
                 }
             };
 
