@@ -71,6 +71,8 @@ const HblUnifiedCheckout: React.FC = () => {
 
             // 1. CREATE THE LISTENER to catch the SDK's internal "close" message
             const handleSdkClose = (event: MessageEvent) => {
+                console.log("event triggred", event);
+
                 // This checks for the exact log you see in your console
                 if (event.data && event.data.source === 'mce:App::closeApp') {
                     console.log('Back button detected via window message tracking!');
