@@ -84,7 +84,7 @@ const HblUnifiedCheckout: React.FC = () => {
                 };
 
                 // 4. Use createTrigger to load PANENTRY immediately
-                const trigger = up.createTrigger('CLICKTOPAY', containerOptions);
+                const trigger = up.createTrigger('PANENTRY', containerOptions);
 
                 // 5. Show the UI and await the Transient Token
                 const transientToken = await trigger.show();
