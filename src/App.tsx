@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
-// import HblUnifiedCardCheckout from './HblUnifiedCardCheckout';
-import HblUnifiedBankTransferCheckout from './HblUnifiedBankTransferCheckout';
+import HblUnifiedCardCheckout from './HblUnifiedCardCheckout';
+// import HblUnifiedBankTransferCheckout from './HblUnifiedBankTransferCheckout';
 
 const SummaryPage = () => (
   <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -14,8 +14,8 @@ const SummaryPage = () => (
 function App() {
   return (
     <Routes>
-      {/* <Route path="/" element={<HblUnifiedCardCheckout />} /> */}
-      <Route path="/" element={<HblUnifiedBankTransferCheckout />} />
+      <Route path="/" element={<HblUnifiedCardCheckout />} />
+      {/* <Route path="/" element={<HblUnifiedBankTransferCheckout />} /> */}
       <Route path="/summary-page" element={<SummaryPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
