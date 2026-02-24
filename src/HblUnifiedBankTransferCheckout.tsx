@@ -17,7 +17,7 @@ const HblUnifiedBankTransferCheckout: React.FC = () => {
     const [jwt, setJwt] = useState<string>('');
     const [status, setStatus] = useState<string>('Waiting for JWT input...');
     const [isLoaded, setIsLoaded] = useState<boolean>(false);
-    const [isSuccess, setIsSuccess] = useState<boolean>(false);
+    // const [isSuccess, setIsSuccess] = useState<boolean>(false);
     const [isError, setIsError] = useState<boolean>(false);
     const sdkRef = useRef<HTMLScriptElement | null>(null);
 
@@ -92,7 +92,7 @@ const HblUnifiedBankTransferCheckout: React.FC = () => {
                 const transientToken = await trigger.show();
 
                 window.removeEventListener('message', messageListener);
-                setIsSuccess(true);
+                // setIsSuccess(true);
                 setStatus('✅ Bank verification complete! Processing...');
                 console.log('Transient Token:', transientToken);
 
