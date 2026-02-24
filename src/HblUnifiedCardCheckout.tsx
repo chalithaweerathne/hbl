@@ -14,7 +14,7 @@ declare global {
     }
 }
 
-const HblUnifiedCheckout: React.FC = () => {
+const HblUnifiedCardCheckout: React.FC = () => {
     const navigate = useNavigate();
     const [jwt, setJwt] = useState<string>('');
     const [status, setStatus] = useState<string>('Waiting for JWT input...');
@@ -267,4 +267,4 @@ const HblUnifiedCheckout: React.FC = () => {
     );
 };
 
-export default HblUnifiedCheckout;
+export default HblUnifiedCardCheckout;
