@@ -87,7 +87,6 @@ const HblUnifiedBankTransferCheckout: React.FC = () => {
 
                 // Use 'CHECK' for Bank Transfer/Account Based Payments
                 const trigger = up.createTrigger('CHECK', containerOptions);
-                console.log("cv trigger", trigger);
                 
 
                 setStatus('Ready. Select your bank account...');

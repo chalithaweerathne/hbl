@@ -120,6 +120,7 @@ const HblUnifiedCardCheckout: React.FC = () => {
                 // Creates a trigger for a specific payment method, in this case, manual card entry ('PANENTRY')
                 // This allows you to load the UI without using the default Unified Checkout button list
                 const trigger = up.createTrigger('PANENTRY', containerOptions);
+                console.log("cv trigger", trigger);
 
                 // Displays the secure payment form in the container and waits for the customer to finish
                 // On success, it returns a Transient Token (JWT) that safely represents the captured payment data
