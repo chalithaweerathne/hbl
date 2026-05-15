@@ -125,7 +125,7 @@ const HblUnifiedCardCheckout: React.FC = () => {
                 // Displays the secure payment form in the container and waits for the customer to finish
                 // On success, it returns a Transient Token (JWT) that safely represents the captured payment data
                 const transientToken = await trigger.show();
-
+                await trigger.complete(transientToken)
 
                 window.removeEventListener('message', messageListener);
                 setIsSuccess(true);
