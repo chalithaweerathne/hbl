@@ -69,74 +69,72 @@ const HblUnifiedCardCheckout: React.FC = () => {
         script.onload = async () => {
             setStatus('SDK Loaded. Initializing Accept Instance...');
 
-            // --- TRACKING FIX START ---
             const messageListener = (event: MessageEvent) => {
-                // 1. Check for the Cybersource 'telegram' JSON message you see in your log
                 if (typeof event.data === 'string' && event.data.includes('/*cybs-telgram*/')) {
                     try {
                         const rawJson = event.data.replace('/*cybs-telgram*/', '');
                         const parsed = JSON.parse(rawJson);
-
-                        // Check if the event type is "CLOSE" (triggered by Back button)
                         if (parsed.event === 'CLOSE') {
-                            console.log('Back button detected via cybs-telgram CLOSE event');
-                            window.removeEventListener('message', messageListener);
+                            cleanup();
                             navigate('/summary-page');
                         }
-                    } catch (e) {
-                        // Not a JSON we care about
-                    }
+                    } catch (e) { }
                 }
-
-                // 2. Fallback check for the 'mce:App::closeApp' source
                 if (event.data && event.data.source === 'mce:App::closeApp') {
-                    console.log('Back button detected via closeApp source');
-                    window.removeEventListener('message', messageListener);
+                    cleanup();
                     navigate('/summary-page');
                 }
             };
 
+            const cleanup = () => {
+                window.removeEventListener('message', messageListener);
+            };
+
             window.addEventListener('message', messageListener);
-            // --- TRACKING FIX END ---
 
             try {
-                // Initializes the SDK Accept object using the JWT Capture Context provided by backend
-                // This step authenticates merchant identity and sets up the transaction-specific public key
                 const acceptInstance = await window.Accept(jwt);
-
-                // Creates an instance of the Unified Payments class
-                // Setting 'false' disables the sidebar to enable 'embedded' mode, where the form appears inline on the page
+                // "up" is the Unified Payments instance needed for orchestration [cite: 261]
                 const up = await acceptInstance.unifiedPayments(false);
                 setStatus('Ready. Loading Manual Entry Form...');
 
-                // Defines the configuration object specifying the DOM element (via CSS selector)
-                // This tells the SDK exactly where to inject the secure payment iframe on webpage
                 const containerOptions = {
                     containers: {
                         paymentScreen: '#payment-screen-container',
                     },
                 };
 
-                // Creates a trigger for a specific payment method, in this case, manual card entry ('PANENTRY')
-                // This allows you to load the UI without using the default Unified Checkout button list
                 const trigger = up.createTrigger('PANENTRY', containerOptions);
-                console.log("cv trigger", trigger);
 
-                // Displays the secure payment form in the container and waits for the customer to finish
-                // On success, it returns a Transient Token (JWT) that safely represents the captured payment data
+                // 1. Show the form and wait for the transient token [cite: 262, 263]
                 const transientToken = await trigger.show();
-                await trigger.complete(transientToken)
 
-                window.removeEventListener('message', messageListener);
+                setStatus('Processing Authentication/Payment...');
+
+                // 2. Trigger the OTP Challenge / Complete Mandate [cite: 264, 831, 832]
+                // This handles Payer Authentication (3DS) automatically if configured [cite: 852]
+                const completeResponse = await up.complete(transientToken);
+
+                cleanup();
                 setIsSuccess(true);
                 setIsError(false);
-                setStatus('✅ Success! Transient Token received.');
-                console.log('Transient Token JWT:', transientToken);
-            } catch (err: any) {
+                setStatus('✅ Payment/Authentication Processed Successfully');
+                console.log('Complete Response:', completeResponse);
 
-                window.removeEventListener('message', messageListener);
+            } catch (err: any) {
+                cleanup();
                 console.error('SDK Detail Error:', err);
-                const message = err instanceof Error ? err.message : 'Initialization failed';
+
+                // Handle specific 3DS/OTP errors [cite: 1732, 1737]
+                let message = 'Initialization failed';
+                if (err.reason === 'COMPLETE_AUTHENTICATION_CANCELED') {
+                    message = 'Authentication was canceled by the user.';
+                } else if (err.reason === 'COMPLETE_AUTHENTICATION_FAILED') {
+                    message = 'Authentication failed. Please try a different card.';
+                } else {
+                    message = err.message || message;
+                }
+
                 setIsError(true);
                 setIsSuccess(false);
                 setStatus(`Error: ${message}`);
